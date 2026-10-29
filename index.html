@@ -1,0 +1,494 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Bench Radar · Noyce</title>
+<meta name="description" content="See who is hiring people like your bench, or size the pool for a role you need to fill.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,500&display=swap">
+<style>
+/* Layout: a published notebook app. Inputs on top, one belief sentence, three figures,
+   then cells: chart, chart, table, reading, sources. Two columns from 1100px (the TV). */
+:root {
+  --ground: #f2f1ed;
+  --cell: #ffffff;
+  --ink: #16191c;
+  --muted: #5f6368;
+  --faint: #8d8f8c;
+  --rule: #e4e1da;
+  --hair: #eeece6;
+  --track: #e8e5de;
+  --hero: #1f6b84;          /* the only color that encodes a value */
+  --hero-soft: #e3edf1;
+
+  --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --serif: 'Source Serif 4', 'Iowan Old Style', Georgia, serif;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-move: cubic-bezier(0.645, 0.045, 0.355, 1);
+  --pad: max(16px, env(safe-area-inset-left, 0px));
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+html, body { margin: 0; background: var(--ground); color: var(--ink); }
+body { font: 400 14.5px/1.5 var(--sans); font-optical-sizing: auto; -webkit-font-smoothing: antialiased; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.num { font-variant-numeric: tabular-nums; }
+
+/* App bar */
+.bar { position: sticky; top: 0; z-index: 5; background: rgba(242, 241, 237, 0.86); backdrop-filter: saturate(1.4) blur(12px); -webkit-backdrop-filter: saturate(1.4) blur(12px); border-bottom: 1px solid var(--rule); padding-top: env(safe-area-inset-top, 0px); }
+.bar-in { max-width: 1240px; margin: 0 auto; padding: 12px max(16px, env(safe-area-inset-right, 0px)) 12px var(--pad); display: flex; align-items: center; gap: 12px; }
+.logo { display: flex; align-items: center; gap: 8px; font-weight: 600; letter-spacing: -0.01em; }
+.logo i { width: 9px; height: 9px; border-radius: 2px; background: var(--ink); }
+.crumb { color: var(--faint); }
+.app-name { font-weight: 500; }
+.status { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); border: 1px solid var(--rule); background: var(--cell); padding: 4px 9px; border-radius: 99px; white-space: nowrap; }
+.status::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--hero); }
+
+main { max-width: 1240px; margin: 0 auto; padding: 20px max(16px, env(safe-area-inset-right, 0px)) 48px var(--pad); display: flex; flex-direction: column; gap: 16px; }
+
+/* Input parameters, as a notebook app shows them */
+.inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.field label, .field .lab { font-size: 12px; font-weight: 500; color: var(--muted); }
+.select { position: relative; }
+.select select { appearance: none; -webkit-appearance: none; width: 100%; height: 42px; border: 1px solid var(--rule); border-radius: 8px; background: var(--cell); font: 500 15px/1 var(--sans); color: var(--ink); padding: 0 34px 0 12px; cursor: pointer; transition: border-color 150ms ease; }
+.select::after { content: ""; position: absolute; right: 14px; top: 50%; width: 7px; height: 7px; border-right: 1.5px solid var(--muted); border-bottom: 1.5px solid var(--muted); transform: translateY(-70%) rotate(45deg); pointer-events: none; }
+.select select:focus-visible { outline: 2px solid var(--hero); outline-offset: 1px; }
+.mode { grid-column: 1 / -1; }
+.seg { position: relative; display: grid; grid-template-columns: 1fr 1fr; background: var(--track); border-radius: 9px; padding: 3px; height: 42px; }
+.seg button { position: relative; z-index: 1; appearance: none; border: 0; background: none; font: 500 14px/1 var(--sans); color: var(--muted); border-radius: 7px; cursor: pointer; transition: color 150ms ease; }
+.seg button[aria-selected="true"] { color: var(--ink); }
+.seg button:focus-visible { outline: 2px solid var(--hero); outline-offset: 1px; }
+.seg .thumb { position: absolute; top: 3px; left: 3px; bottom: 3px; width: calc(50% - 3px); background: var(--cell); border-radius: 7px; box-shadow: 0 1px 2px rgba(22, 25, 28, 0.08), 0 0 0 1px rgba(22, 25, 28, 0.04); transition: transform 240ms var(--ease-move); }
+.seg[data-mode="role"] .thumb { transform: translateX(100%); }
+
+/* Cells */
+.cell { background: var(--cell); border: 1px solid var(--rule); border-radius: 12px; padding: 20px; min-width: 0; }
+.cell h2 { margin: 0; font-size: 15px; font-weight: 600; letter-spacing: -0.005em; }
+.cell .sub { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+.cell .src { margin: 16px 0 0; padding-top: 12px; border-top: 1px solid var(--hair); color: var(--faint); font-size: 12px; }
+
+/* Briefing: eyebrow, belief, three figures */
+.brief { padding: 24px 20px 20px; }
+.eyebrow { font-size: 12px; color: var(--muted); font-weight: 500; }
+.belief { font-family: var(--serif); font-weight: 400; font-size: 23px; line-height: 1.32; letter-spacing: -0.005em; margin: 8px 0 0; text-wrap: pretty; max-width: 34em; }
+.belief b { font-weight: 500; color: var(--hero); }
+.figs { display: grid; grid-template-columns: 1fr; gap: 0; margin-top: 20px; border-top: 1px solid var(--hair); }
+.fig { padding: 14px 0; border-bottom: 1px solid var(--hair); display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 4px 12px; }
+.fig:last-child { border-bottom: 0; padding-bottom: 0; }
+.fig .k { font-size: 13px; color: var(--muted); }
+.fig .v { font-size: 26px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.1; text-align: right; }
+.fig .v small { font-size: 14px; font-weight: 500; color: var(--faint); letter-spacing: 0; margin-left: 2px; }
+.fig .b { grid-column: 1 / -1; font-size: 12.5px; color: var(--faint); }
+
+/* Bar list: one series, a neutral tick for the 90 days before */
+.bars { margin-top: 16px; display: flex; flex-direction: column; gap: 14px; }
+.brow { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; align-items: baseline; }
+.brow .nm { font-weight: 500; min-width: 0; }
+.brow .nm span { display: block; font-weight: 400; color: var(--faint); font-size: 12.5px; }
+.brow .n { font-weight: 600; text-align: right; }
+.brow .track { grid-column: 1 / -1; position: relative; height: 8px; background: var(--track); border-radius: 2px; }
+.brow .fill { position: absolute; inset: 0 auto 0 0; background: var(--hero); border-radius: 2px; transform-origin: left center; }
+.brow .tick { position: absolute; top: -3px; bottom: -3px; width: 2px; background: var(--ink); opacity: 0.55; border-radius: 1px; }
+.legend { margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend .sw { width: 12px; height: 8px; border-radius: 2px; background: var(--hero); }
+.legend .tk { width: 2px; height: 12px; background: var(--ink); opacity: 0.55; }
+.legend .nt { width: 12px; height: 8px; border-radius: 2px; background: var(--track); }
+
+/* Column chart */
+.chart { margin-top: 18px; display: grid; grid-template-columns: auto 1fr; gap: 0 8px; }
+.yax { display: flex; flex-direction: column-reverse; justify-content: space-between; height: 160px; font-size: 11px; color: var(--faint); text-align: right; transform: translateY(6px); }
+.plot { position: relative; height: 160px; border-bottom: 1px solid var(--ink); }
+.grid { position: absolute; left: 0; right: 0; height: 1px; background: var(--hair); }
+.cols { position: absolute; inset: 0; display: flex; align-items: flex-end; gap: 3px; }
+.col { flex: 1; background: var(--track); border-radius: 2px 2px 0 0; transform-origin: bottom center; min-height: 1px; }
+.col.now { background: var(--hero); }
+.xax { grid-column: 2; display: flex; justify-content: space-between; font-size: 11px; color: var(--faint); margin-top: 6px; }
+
+/* Table */
+.tbl-wrap { margin-top: 14px; overflow-x: auto; -webkit-overflow-scrolling: touch; margin-inline: -20px; padding-inline: 20px; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; min-width: 520px; }
+th { text-align: left; font-weight: 500; font-size: 12px; color: var(--muted); padding: 0 12px 8px 0; border-bottom: 1px solid var(--rule); white-space: nowrap; }
+td { padding: 11px 12px 11px 0; border-bottom: 1px solid var(--hair); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+th.r, td.r { text-align: right; }
+td.dim { color: var(--faint); }
+td .why { color: var(--muted); font-size: 12.5px; }
+.score { font-weight: 600; white-space: nowrap; }
+.co td:first-child, .co td:nth-child(2) { white-space: nowrap; }
+.score small { color: var(--faint); font-weight: 500; font-size: 12px; }
+.tag { display: inline-block; font-size: 11px; font-weight: 500; color: var(--muted); border: 1px solid var(--rule); border-radius: 5px; padding: 1px 6px; margin-left: 6px; vertical-align: 1px; }
+
+/* Reading and claims */
+.kind { display: inline-block; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--hero); }
+.reading { font-family: var(--serif); font-size: 18px; line-height: 1.4; margin: 6px 0 0; text-wrap: pretty; }
+.claims { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; }
+.claims li { padding: 12px 0; border-top: 1px solid var(--hair); display: flex; flex-direction: column; gap: 3px; }
+.claims li:first-child { border-top: 0; padding-top: 4px; }
+.claims .c { font-weight: 500; }
+.claims .s { font-size: 12px; color: var(--faint); }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 16px; cursor: pointer; }
+.switch input { position: absolute; opacity: 0; pointer-events: none; }
+.switch .sw2 { flex: none; width: 40px; height: 24px; border-radius: 99px; background: #c9c6bf; position: relative; transition: background-color 180ms ease; }
+.switch .sw2::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18); transition: transform 200ms var(--ease-move); }
+.switch input:checked + .sw2 { background: var(--hero); }
+.switch input:checked + .sw2::after { transform: translateX(16px); }
+.switch input:focus-visible + .sw2 { outline: 2px solid var(--hero); outline-offset: 2px; }
+
+.cta { background: var(--ink); color: #f2f1ed; border-color: var(--ink); }
+.cta h2 { font-family: var(--serif); font-weight: 400; font-size: 22px; line-height: 1.25; }
+.cta p { color: rgba(242, 241, 237, 0.7); margin: 8px 0 0; max-width: 40em; }
+.mail { margin-top: 16px; display: flex; align-items: center; gap: 8px; background: rgba(242, 241, 237, 0.08); border: 1px solid rgba(242, 241, 237, 0.14); border-radius: 9px; padding: 6px 6px 6px 12px; max-width: 360px; }
+.mail a { flex: 1; min-width: 0; color: inherit; text-decoration: none; font-weight: 500; overflow-wrap: anywhere; }
+.mail button { appearance: none; border: 0; border-radius: 7px; background: #f2f1ed; color: var(--ink); font: 600 13px/1 var(--sans); padding: 10px 12px; cursor: pointer; transition: transform 120ms var(--ease-out); }
+.mail button:active { transform: scale(0.96); }
+
+footer { color: var(--faint); font-size: 12px; max-width: 60em; }
+
+/* Layout: phone first, TV gets two columns */
+.grid2 { display: grid; grid-template-columns: 1fr; gap: 16px; }
+@media (min-width: 720px) {
+  .inputs { grid-template-columns: 1fr 1fr 1.3fr; align-items: end; }
+  .mode { grid-column: auto; }
+  .figs { grid-template-columns: repeat(3, 1fr); }
+  .fig { display: flex; flex-direction: column; align-items: flex-start; border-bottom: 0; border-left: 1px solid var(--hair); padding: 16px 20px 0; }
+  .fig:first-child { border-left: 0; padding-left: 0; }
+  .fig .v { order: 2; text-align: left; font-size: 30px; }
+  .fig .k { order: 1; }
+  .fig .b { order: 3; }
+  .belief { font-size: 28px; }
+  .brief { padding: 28px 28px 24px; }
+}
+@media (min-width: 1100px) {
+  .grid2 { grid-template-columns: 1fr 1fr; }
+  .span2 { grid-column: 1 / -1; }
+  .belief { font-size: 32px; }
+  .yax, .plot { height: 300px; }
+}
+
+/* Motion: marks grow from the baseline when an answer arrives. Only transform and opacity. */
+.enter .fill { animation: grow-x 560ms var(--ease-out) both; animation-delay: var(--d, 0ms); }
+.enter .col { animation: grow-y 520ms var(--ease-out) both; animation-delay: var(--d, 0ms); }
+.enter .fade { animation: fade 280ms var(--ease-out) both; animation-delay: var(--d, 0ms); }
+@keyframes grow-x { from { transform: scaleX(0); } }
+@keyframes grow-y { from { transform: scaleY(0); } }
+@keyframes fade { from { opacity: 0; transform: translateY(4px); } }
+.dim-out { opacity: 0.4; transition: opacity 150ms ease; }
+@media (prefers-reduced-motion: reduce) {
+  .enter .fill, .enter .col, .enter .fade { animation: none; }
+  .seg .thumb, .switch .sw2, .switch .sw2::after, .dim-out { transition: none; }
+}
+</style>
+</head>
+<body>
+<header class="bar">
+  <div class="bar-in">
+    <div class="logo"><i></i>Noyce</div>
+    <span class="crumb">/</span>
+    <span class="app-name">Bench Radar</span>
+    <span class="status">Illustrative data</span>
+  </div>
+</header>
+
+<main>
+  <section class="inputs" aria-label="Inputs">
+    <div class="field">
+      <label for="role">Role</label>
+      <div class="select"><select id="role"></select></div>
+    </div>
+    <div class="field">
+      <label for="city">City</label>
+      <div class="select"><select id="city"></select></div>
+    </div>
+    <div class="field mode">
+      <span class="lab" id="mode-lab">You have</span>
+      <div class="seg" id="seg" data-mode="bench" role="tablist" aria-labelledby="mode-lab">
+        <span class="thumb" aria-hidden="true"></span>
+        <button role="tab" id="tab-bench" data-mode="bench" aria-selected="true">People on the bench</button>
+        <button role="tab" id="tab-role" data-mode="role" aria-selected="false">A role to fill</button>
+      </div>
+    </div>
+  </section>
+
+  <div id="out" aria-live="polite"></div>
+
+  <section class="cell cta">
+    <h2>Run this on your real bench.</h2>
+    <p>Three ITServe firms, 60 days. Your consultants matched to the companies hiring people like them, with sponsor filings beside each one.</p>
+    <div class="mail"><a href="mailto:rajeev@noyce.ai" id="mail">rajeev@noyce.ai</a><button type="button" id="copy">Copy</button></div>
+  </section>
+
+  <footer>Every number on this page is illustrative and generated for the demo. Companies are described, not named. In the pilot, hires come from job changes on public profiles, refreshed weekly, and sponsor filings come from the Department of Labor LCA disclosure files, published quarterly.</footer>
+</main>
+
+<script>
+/* ─────────────────────────────────────────────────────────
+ * ANIMATION STORYBOARD
+ *
+ *    0ms   input changes, current answer dims to 40%
+ *  220ms   new answer swaps in
+ *  220ms   briefing fades up, figures follow 40ms apart
+ *  300ms   bars grow from zero, 30ms apart
+ *  300ms   weekly columns grow from the baseline, 12ms apart
+ * ───────────────────────────────────────────────────────── */
+const TIMING = { swap: 220, figStep: 40, barStart: 80, barStep: 30, colStart: 80, colStep: 12 };
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ── Illustrative data. Employers are described, never named. ── */
+const SI = 'Through a global SI prime', SP = 'Through a staffing prime', DIR = 'Direct', PV = 'As the prime vendor', VL = 'Through an approved vendor list', SAPP = 'Through an SAP partner';
+const ROLES = {
+  java:   { label: 'Java developer', plural: 'Java developers', short: 'Java', base: 140, trend: 4, next: ['Java with Kafka streaming', 19],
+            emp: [['Top-10 US bank', SI, 1], ['Card issuer', DIR, 1], ['Big 4 consultancy', PV, 1], ['National telecom carrier', SP, 1], ['Health insurer', SI, 1], ['Major airline', DIR, 0]],
+            why: ['Spring Boot services at a bank', 'Kafka in production', 'Led a mainframe to Java move', 'Open to contract roles'] },
+  dotnet: { label: '.NET developer', plural: '.NET developers', short: '.NET', base: 95, trend: -3, next: ['.NET with Azure migration', 14],
+            emp: [['Health insurer', DIR, 1], ['State agency', VL, 0], ['Regional bank', SP, 1], ['Logistics company', DIR, 1], ['Big 4 consultancy', PV, 1], ['Retail chain', SI, 0]],
+            why: ['C# and Azure Functions', 'Moved a WinForms app to the web', 'Healthcare claims systems', 'SQL Server tuning'] },
+  sap:    { label: 'SAP S/4HANA consultant', plural: 'SAP S/4HANA consultants', short: 'SAP', base: 70, trend: 9, next: ['S/4HANA data migration', 24],
+            emp: [['Consumer goods maker', SAPP, 1], ['Big 4 consultancy', PV, 1], ['Pharma company', SI, 1], ['Electric utility', VL, 0], ['Auto parts maker', DIR, 1], ['Oil and gas major', SI, 1]],
+            why: ['Two full S/4HANA cutovers', 'FICO with MM', 'Pharma validation work', 'Led a data migration'] },
+  sfdc:   { label: 'Salesforce developer', plural: 'Salesforce developers', short: 'Salesforce', base: 80, trend: -2, next: ['Salesforce with Data Cloud', 17],
+            emp: [['Salesforce partner firm', PV, 1], ['Insurance carrier', DIR, 1], ['Medical device maker', SP, 1], ['Wealth manager', DIR, 1], ['Big 4 consultancy', PV, 1], ['Nonprofit network', VL, 0]],
+            why: ['Apex and Lightning components', 'Service Cloud rollout', 'Platform Developer II', 'CPQ for an insurer'] },
+  qa:     { label: 'QA engineer', plural: 'QA engineers', short: 'QA', base: 110, trend: -18, next: ['SDET with Playwright', 22],
+            emp: [['Top-10 US bank', SI, 1], ['National telecom carrier', SP, 1], ['Health insurer', SI, 1], ['Game studio', DIR, 0], ['State agency', VL, 0], ['Retail chain', DIR, 1]],
+            why: ['Selenium to Playwright move', 'API tests in CI', 'Banking regression suites', 'Performance testing'] },
+  data:   { label: 'data engineer', plural: 'data engineers', short: 'data engineering', base: 120, trend: 12, next: ['Databricks with dbt', 27],
+            emp: [['Card issuer', DIR, 1], ['Health system', SP, 1], ['Big 4 consultancy', PV, 1], ['Streaming company', DIR, 1], ['Insurance carrier', SI, 1], ['Pharma company', SI, 1]],
+            why: ['Spark on Databricks', 'dbt models in production', 'Snowflake cost work', 'Healthcare data under HIPAA'] },
+  devops: { label: 'DevOps engineer', plural: 'DevOps engineers', short: 'DevOps', base: 85, trend: 5, next: ['Platform engineering on Kubernetes', 16],
+            emp: [['Cloud consultancy', PV, 1], ['Top-10 US bank', SI, 1], ['SaaS company', DIR, 1], ['National telecom carrier', SP, 1], ['Major airline', DIR, 0], ['Federal contractor', PV, 0]],
+            why: ['Kubernetes on AWS', 'Terraform at scale', 'Cut deploy time in half', 'On call for a bank'] },
+  ai:     { label: 'ML engineer', plural: 'ML engineers', short: 'ML', base: 60, trend: 31, next: ['LLM apps with retrieval', 44],
+            emp: [['AI-native startup', DIR, 1], ['Top-10 US bank', DIR, 1], ['Big 4 consultancy', PV, 1], ['Health system', SP, 1], ['Insurance carrier', SI, 1], ['Cloud consultancy', PV, 1]],
+            why: ['Shipped a retrieval assistant', 'PyTorch and model serving', 'Evals for an LLM product', 'Python data pipelines'] },
+};
+const CITIES = { dfw: ['Dallas', 1.0], nj: ['New Jersey', 1.15], bay: ['the Bay Area', 0.9], atl: ['Atlanta', 0.6], chi: ['Chicago', 0.7], rem: ['remote roles', 0.8] };
+const CITY_LABEL = { dfw: 'Dallas', nj: 'New Jersey', bay: 'Bay Area', atl: 'Atlanta', chi: 'Chicago', rem: 'Remote' };
+
+function rng(seed) {
+  let h = 1779033703 ^ seed.length;
+  for (let i = 0; i < seed.length; i++) { h = Math.imul(h ^ seed.charCodeAt(i), 3432918353); h = (h << 13) | (h >>> 19); }
+  let a = h >>> 0;
+  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+/* House style: 1208 and 12,080. One through nine spelled out in sentences. */
+const n = x => (x >= 10000 ? x.toLocaleString('en-US') : String(x));
+const WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+const w = x => (x < 10 ? WORDS[x] : n(x));
+const cap = s => s.charAt(0).toLocaleUpperCase('en-US') + s.slice(1);
+
+function bench(roleKey, cityKey) {
+  const r = ROLES[roleKey], [, m] = CITIES[cityKey], rand = rng(roleKey + cityKey);
+  const total = Math.round(r.base * m * (0.9 + rand() * 0.2));
+  const trend = r.trend + Math.round((rand() - 0.5) * 4);
+  const before = Math.round(total / (1 + trend / 100));
+  const wts = [0.27, 0.2, 0.17, 0.14, 0.12, 0.1].map(x => x * (0.75 + rand() * 0.5));
+  const sum = wts.reduce((a, b) => a + b, 0);
+  const rows = r.emp.map(([name, via, sp], i) => {
+    const h = Math.max(3, Math.round(total * 0.62 * wts[i] / sum));
+    const prev = Math.max(2, Math.round(h / (1 + (trend + (rand() - 0.5) * 30) / 100)));
+    return { name, via, h, prev, lca: sp ? Math.round(h * (2 + rand() * 3)) : 0 };
+  }).sort((a, b) => b.h - a.h);
+  const shown = rows.reduce((a, x) => a + x.h, 0);
+  const sponsored = Math.round(total * rows.filter(x => x.lca).reduce((a, x) => a + x.h, 0) / shown);
+  const viaPrime = Math.round(total * rows.filter(x => x.via !== DIR).reduce((a, x) => a + x.h, 0) / shown);
+  /* 26 weeks: the 13 before, then the 13 that make up the window */
+  const weeks = [];
+  for (let i = 0; i < 26; i++) {
+    const t = i / 25, mean = (before + (total - before) * t) / 13;
+    weeks.push(Math.max(1, Math.round(mean * (0.75 + rand() * 0.5))));
+  }
+  return { r, total, before, trend, rows, sponsored, viaPrime, weeks, nextGrowth: r.next[1] + Math.round((rand() - 0.5) * 6) };
+}
+function pool(roleKey, cityKey) {
+  const r = ROLES[roleKey], [, m] = CITIES[cityKey], rand = rng('pool' + roleKey + cityKey);
+  const size = Math.round(r.base * m * (8 + rand() * 2));
+  const moved = Math.round(size * (0.06 + rand() * 0.03));
+  const raw = [0.08, 0.22, 0.31, 0.24, 0.15].map(x => x * (0.8 + rand() * 0.4));
+  const s = raw.reduce((a, b) => a + b, 0);
+  const buckets = ['0 to 2', '3 to 5', '6 to 8', '9 to 12', '13 or more'].map((label, i) => ({ label, v: Math.round(size * raw[i] / s) }));
+  const fits = [94, 89, 85].map(f => f - Math.floor(rand() * 3));
+  const cands = fits.map((fit, i) => ({ id: 'Sample ' + 'ABC'[i], yrs: 5 + Math.floor(rand() * 8), fit, why: [r.why[i], r.why[(i + 1) % 4]] }));
+  return { r, size, moved, buckets, cands };
+}
+
+/* ── Views ── */
+const el = id => document.getElementById(id);
+const state = { mode: 'bench', role: 'java', city: 'dfw', transfer: false };
+const today = 'October 29, 2026';
+
+function niceMax(v) { const p = Math.pow(10, Math.floor(Math.log10(v))); return Math.ceil(v / p / (v / p > 5 ? 2 : 1)) * p * (v / p > 5 ? 2 : 1); }
+
+function viewBench() {
+  const x = bench(state.role, state.city), r = x.r, city = CITIES[state.city][0];
+  const dir = x.trend >= 0 ? 'up' : 'down';
+  const max = Math.max(...x.rows.map(y => Math.max(y.h, y.prev)));
+  const wmax = niceMax(Math.max(...x.weeks));
+  const belief = `<b>${n(x.total)} ${r.plural}</b> like yours were hired in ${city} in the last 90 days, ${dir} ${Math.abs(x.trend)} percent. ${cap(w(x.sponsored))} of them joined companies that sponsor this role.`;
+  return `
+  <div class="grid2">
+    <section class="cell brief span2 fade" style="--d:0ms">
+      <div class="eyebrow">${cap(r.plural)} · ${CITY_LABEL[state.city]} · 90 days through ${today}</div>
+      <p class="belief">${belief}</p>
+      <div class="figs">
+        <div class="fig fade" style="--d:${TIMING.figStep}ms"><span class="k">Hired, last 90 days</span><span class="v num">${n(x.total)}</span><span class="b num">${n(x.before)} in the 90 days before</span></div>
+        <div class="fig fade" style="--d:${TIMING.figStep * 2}ms"><span class="k">At sponsoring companies</span><span class="v num">${n(x.sponsored)}<small>of ${n(x.total)}</small></span><span class="b">Filed an LCA for this role last year</span></div>
+        <div class="fig fade" style="--d:${TIMING.figStep * 3}ms"><span class="k">Through a prime or vendor</span><span class="v num">${n(x.viaPrime)}<small>of ${n(x.total)}</small></span><span class="b">The rest were hired direct</span></div>
+      </div>
+    </section>
+
+    <section class="cell" aria-label="${x.rows[0].name} hired the most ${r.plural}, ${x.rows[0].h} in 90 days.">
+      <h2>Where they went</h2>
+      <p class="sub">The six companies that hired the most, last 90 days.</p>
+      <div class="bars">
+        ${x.rows.map((y, i) => `
+        <div class="brow">
+          <div class="nm">${y.name}<span>${y.via}</span></div>
+          <div class="n num">${y.h}</div>
+          <div class="track"><div class="fill" style="width:${(y.h / max) * 100}%;--d:${TIMING.barStart + i * TIMING.barStep}ms"></div><div class="tick" style="left:calc(${(y.prev / max) * 100}% - 1px)"></div></div>
+        </div>`).join('')}
+      </div>
+      <div class="legend"><span><i class="sw"></i>Last 90 days</span><span><i class="tk"></i>The 90 days before</span></div>
+    </section>
+
+    <section class="cell" aria-label="Weekly hires of ${r.plural} in ${city}, ${dir} ${Math.abs(x.trend)} percent over the last 13 weeks.">
+      <h2>Hires per week</h2>
+      <p class="sub">26 weeks. The last 13 are the window above.</p>
+      <div class="chart">
+        <div class="yax num"><span>0</span><span>${wmax / 2}</span><span>${wmax}</span></div>
+        <div class="plot">
+          <div class="grid" style="bottom:50%"></div><div class="grid" style="bottom:100%"></div>
+          <div class="cols">${x.weeks.map((v, i) => `<div class="col${i >= 13 ? ' now' : ''}" style="height:${(v / wmax) * 100}%;--d:${TIMING.colStart + i * TIMING.colStep}ms" title="Week ${i + 1}: ${v}"></div>`).join('')}</div>
+        </div>
+        <div class="xax"><span>May</span><span>July</span><span>October</span></div>
+      </div>
+      <div class="legend"><span><i class="nt"></i>The 13 weeks before</span><span><i class="sw"></i>Last 13 weeks</span></div>
+    </section>
+
+    <section class="cell span2">
+      <h2>Companies hiring this profile</h2>
+      <p class="sub">Sorted by hires in the last 90 days.</p>
+      <div class="tbl-wrap"><table class="co">
+        <thead><tr><th>Company</th><th>How they hire</th><th class="r">Last 90 days</th><th class="r">90 days before</th><th class="r">LCAs filed, FY2025</th></tr></thead>
+        <tbody>${x.rows.map(y => `<tr><td>${y.name}</td><td class="dim">${y.via}</td><td class="r num">${y.h}</td><td class="r num dim">${y.prev}</td><td class="r num ${y.lca ? '' : 'dim'}">${y.lca ? y.lca : 'None filed'}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <p class="src">Hires: job changes on public profiles that match this role and city. LCAs: Department of Labor disclosure files for the matching job code.</p>
+    </section>
+
+    <section class="cell">
+      <span class="kind">Reading</span>
+      <p class="reading">Hiring for ${r.next[0]} in ${city} grew ${x.nextGrowth} percent over the same 90 days. It looks like the nearest skill your ${r.short} people can move toward.</p>
+      <p class="src">A reading, not a finding. Based on overlap in the skills listed on profiles hired in both roles.</p>
+    </section>
+
+    <section class="cell">
+      <label class="switch" for="transfer">
+        <span><h2>Already on H-1B in the US?</h2><span class="sub" style="display:block;margin-top:2px">Show what a transfer changes. Nothing is saved.</span></span>
+        <input type="checkbox" id="transfer" ${state.transfer ? 'checked' : ''}><span class="sw2" aria-hidden="true"></span>
+      </label>
+      <ul class="claims" id="claims" ${state.transfer ? '' : 'hidden'}>
+        <li><span class="c">A transfer skips the cap lottery.</span><span class="s">Already counted against the cap. INA 214(g)(7).</span></li>
+        <li><span class="c">They can usually start once the new petition is filed.</span><span class="s">H-1B portability. INA 214(n).</span></li>
+        <li><span class="c">The $100,000 fee is aimed at new petitions for people outside the US.</span><span class="s">Proclamation of September 19, 2025, and USCIS guidance. Confirm each case with counsel.</span></li>
+      </ul>
+    </section>
+  </div>`;
+}
+
+function viewRole() {
+  const x = pool(state.role, state.city), r = x.r, city = CITIES[state.city][0];
+  const top = x.buckets.reduce((a, b) => (b.v > a.v ? b : a));
+  const bmax = niceMax(Math.max(...x.buckets.map(b => b.v)));
+  return `
+  <div class="grid2">
+    <section class="cell brief span2 fade" style="--d:0ms">
+      <div class="eyebrow">${cap(r.label)} · ${CITY_LABEL[state.city]} · as of ${today}</div>
+      <p class="belief"><b>${n(x.size)} people</b> in ${city} fit a ${r.label} role. ${cap(w(x.moved))} changed jobs in the last 90 days, and most have ${top.label} years of experience.</p>
+      <div class="figs">
+        <div class="fig fade" style="--d:${TIMING.figStep}ms"><span class="k">In the pool</span><span class="v num">${n(x.size)}</span><span class="b">Matching role, skills and city</span></div>
+        <div class="fig fade" style="--d:${TIMING.figStep * 2}ms"><span class="k">Changed jobs, 90 days</span><span class="v num">${n(x.moved)}<small>of ${n(x.size)}</small></span><span class="b">Recent movers reply more often</span></div>
+        <div class="fig fade" style="--d:${TIMING.figStep * 3}ms"><span class="k">Most common experience</span><span class="v num">${top.label.replace(' to ', '–')}<small>years</small></span><span class="b">${n(top.v)} people</span></div>
+      </div>
+    </section>
+
+    <section class="cell" aria-label="Most of the pool has ${top.label} years of experience.">
+      <h2>Experience in the pool</h2>
+      <p class="sub">People, by years in this kind of role.</p>
+      <div class="bars">
+        ${x.buckets.map((b, i) => `
+        <div class="brow">
+          <div class="nm">${b.label} years</div>
+          <div class="n num">${n(b.v)}</div>
+          <div class="track"><div class="fill" style="width:${(b.v / bmax) * 100}%;--d:${TIMING.barStart + i * TIMING.barStep}ms"></div></div>
+        </div>`).join('')}
+      </div>
+    </section>
+
+    <section class="cell">
+      <h2>Top matches</h2>
+      <p class="sub">Each match comes with its reasons. Noyce then drafts the outreach.</p>
+      <div class="tbl-wrap"><table style="min-width:0">
+        <thead><tr><th>Profile</th><th class="r">Fit</th></tr></thead>
+        <tbody>${x.cands.map(c => `<tr><td><span style="font-weight:500">${c.id}</span><span class="tag">Sample</span><div class="why">${c.yrs} years · ${CITY_LABEL[state.city]}</div><div class="why">${c.why.join('. ')}.</div></td><td class="r"><span class="score num">${c.fit} <small>/100</small></span></td></tr>`).join('')}</tbody>
+      </table></div>
+      <p class="src">Sample profiles, not real people. Fit is a score out of 100 against the role's must-haves.</p>
+    </section>
+  </div>`;
+}
+
+function render(animate) {
+  const out = el('out');
+  const draw = () => {
+    out.innerHTML = state.mode === 'bench' ? viewBench() : viewRole();
+    out.classList.remove('dim-out');
+    out.classList.toggle('enter', animate && !reduce);
+    const t = el('transfer');
+    if (t) t.addEventListener('change', e => { state.transfer = e.target.checked; el('claims').hidden = !state.transfer; });
+  };
+  if (!animate || reduce) return draw();
+  out.classList.add('dim-out');
+  setTimeout(draw, TIMING.swap);
+}
+
+/* ── Inputs ── */
+el('role').innerHTML = Object.entries(ROLES).map(([k, v]) => `<option value="${k}">${cap(v.label)}</option>`).join('');
+el('city').innerHTML = Object.entries(CITY_LABEL).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+el('role').addEventListener('change', e => { state.role = e.target.value; render(true); });
+el('city').addEventListener('change', e => { state.city = e.target.value; render(true); });
+function setMode(mode) {
+  state.mode = mode;
+  el('seg').dataset.mode = mode;
+  el('tab-bench').setAttribute('aria-selected', mode === 'bench');
+  el('tab-role').setAttribute('aria-selected', mode === 'role');
+  render(true);
+}
+el('seg').addEventListener('click', e => { const b = e.target.closest('button'); if (b && b.dataset.mode !== state.mode) setMode(b.dataset.mode); });
+el('copy').addEventListener('click', async e => {
+  try { await navigator.clipboard.writeText('rajeev@noyce.ai'); e.target.textContent = 'Copied'; }
+  catch { const s = getSelection(), rg = document.createRange(); rg.selectNodeContents(el('mail')); s.removeAllRanges(); s.addRange(rg); e.target.textContent = 'Selected'; }
+  setTimeout(() => { e.target.textContent = 'Copy'; }, 1600);
+});
+
+/* TV: open with #tv and it walks through roles on its own */
+if (location.hash === '#tv') {
+  const keys = Object.keys(ROLES); let i = 0;
+  setInterval(() => {
+    i = (i + 1) % (keys.length * 2);
+    state.role = keys[Math.floor(i / 2)]; el('role').value = state.role;
+    state.mode = i % 2 ? 'role' : 'bench';
+    el('seg').dataset.mode = state.mode;
+    el('tab-bench').setAttribute('aria-selected', state.mode === 'bench');
+    el('tab-role').setAttribute('aria-selected', state.mode === 'role');
+    render(true);
+  }, 9000);
+}
+
+render(false);
+</script>
+</body>
+</html>
